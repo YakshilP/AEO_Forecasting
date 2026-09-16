@@ -1,2 +1,94 @@
 # AEO_Forecasting
 Live inventory forecasting model for American Eagle Outfitters built on real SEC EDGAR filings pandas, numpy, and scikit-learn regression, with diagnostic visualizations.
+
+
+AEO Inventory Forecasting Model
+
+A Python pipeline that pulls American Eagle Outfitters' (NYSE: AEO) financial data live from the SEC's public XBRL API, computes core retail inventory metrics, compares multiple regression approaches to forecast next fiscal year's inventory level, and diagnoses where those forecasts break down — surfacing a real structural pattern tied to the company's disclosed tariff-mitigation strategy.
+
+No hardcoded financial figures — every number is fetched fresh from SEC EDGAR at runtime, so the analysis stays current as AEO files new quarterly and annual reports.
+
+What This Project Does
+Fetches AEO's historical InventoryNet and CostOfGoodsAndServicesSold figures directly from SEC EDGAR's XBRL Frames API (no manual data entry, no API key required).
+Cleans the raw filing data — SEC's feed contains overlapping/duplicate entries across filings, which are filtered down to one clean value per fiscal year.
+Computes standard inventory-planning metrics: Days Inventory Outstanding (DIO), Inventory Turnover, and year-over-year inventory growth.
+Forecasts next fiscal year-end inventory using three methods:
+A simple linear trend against time
+A linear regression against Cost of Goods Sold (a sales-volume proxy)
+The COGS regression re-fit excluding the 2021–2022 pandemic disruption years
+Diagnoses model accuracy via residual analysis — where the forecast over- or under-predicts, and why.
+Visualizes all of the above in print-ready matplotlib charts.
+Key Findings
+AEO's inventory efficiency has declined over the past decade: Days Inventory Outstanding rose from ~58 days (FY2017) to ~73 days (FY2026), while inventory turnover fell from ~6.3x to ~5.0x.
+Cost of Goods Sold is a better predictor of inventory levels than calendar time (R² = 0.958 vs. 0.921), confirming that inventory scales more closely with actual sales volume than with the mere passage of years.
+The 2021–2022 pandemic disruption distorts the time-based model far more than the sales-based model — excluding those years lifts the time-model's R² to 0.988, but only nudges the COGS-model's R² from 0.958 to 0.963. Inventory stayed reasonably tied to sales even through the disruption.
+Three independent forecasting methods converge within 0.4% of each other for FY2027 year-end inventory (~$726–729M), indicating a robust rather than fragile forecast.
+Residual analysis surfaces a real strategic signal: the COGS-based model systematically over-predicts actual inventory in 2024–2025 — actual stock levels ran higher than sales volume alone would justify. This lines up with AEO's own publicly disclosed strategy of diversifying sourcing and building in inventory buffers to mitigate tariff exposure.
+Methodology
+Stage	What it does
+1–2	Raw API call to SEC EDGAR; inspect response structure
+3	Fetch inventory + COGS concepts; clean and deduplicate annual (10-K) figures
+4	Merge datasets; compute DIO, turnover, YoY growth
+5	Fit linear trend (numpy.polyfit); forecast next fiscal year
+6	Visualize actual vs. forecast, and DIO/turnover trends
+7	Refactor into reusable functions (fetch_and_clean, build_metrics_table, forecast_next_year)
+8	Compare time-based vs. COGS-based regression (scikit-learn), using R² to evaluate fit
+9	Test model sensitivity to the 2021–2022 disruption years
+10	Full 4-panel diagnostic dashboard: trend highlighting, R² comparison, residuals, forecast comparison
+Setup
+
+Requirements:
+
+requests
+pandas
+numpy
+matplotlib
+scikit-learn
+
+Install with:
+
+bash
+pip install requests pandas numpy matplotlib scikit-learn
+
+Run in Google Colab (recommended, zero local setup) or any local Jupyter/Python environment.
+
+Usage
+python
+from aeo_forecast import fetch_and_clean, build_metrics_table, forecast_next_year
+
+cik = "0000919012"  # AEO's SEC CIK
+headers = {"User-Agent": "Your Name your.email@example.com"}  # SEC requires a real identifying User-Agent
+
+inventory_clean = fetch_and_clean(cik, "InventoryNet", headers)
+cogs_clean = fetch_and_clean(cik, "CostOfGoodsAndServicesSold", headers)
+merged = build_metrics_table(inventory_clean, cogs_clean)
+next_year, forecast, slope, intercept = forecast_next_year(merged)
+
+print(f"Forecast FY{next_year} inventory: ${forecast:,.0f}")
+
+Swap in any other company's CIK (found via SEC's EDGAR full-text search) to run the same pipeline on a different retailer.
+
+Visualizations
+
+This project generates two chart sets:
+
+aeo_inventory_charts.png — actual vs. forecasted inventory, and DIO/turnover trends over time
+aeo_regression_diagnostics.png — 4-panel dashboard: disruption-highlighted trend, R² model comparison, residuals, and forecast comparison across methods
+
+(Add your saved PNGs here, e.g. ![Inventory Forecast](images/aeo_inventory_charts.png))
+
+Known Limitations
+Uses ending inventory rather than average inventory for DIO/turnover calculations — a common simplification, though average inventory (beginning + ending ÷ 2) is more textbook-correct since it smooths out single-date snapshots.
+The linear trend model assumes a constant dollar (or COGS) relationship year-over-year and does not capture seasonality — it is fit only on annual (fiscal year-end) data and should not be directly compared to mid-year quarterly figures, since retail inventory naturally builds ahead of holiday season and sells down by fiscal year-end.
+Only two predictor variables were tested (time, COGS) against 10 annual data points — a small sample size for regression, so R² differences should be read as directional evidence rather than statistically definitive.
+Potential Future Work
+Incorporate quarterly (10-Q) data for higher-resolution, seasonally-aware forecasting
+Test additional predictors (e.g., revenue, store count) or polynomial/non-linear fits
+Extend the pipeline to competitor retailers (Gap, Abercrombie, Urban Outfitters) for comparative benchmarking
+Disclaimer
+
+This project is for educational and analytical purposes only, built entirely from American Eagle Outfitters, Inc.'s public SEC filings. It is not affiliated with, endorsed by, or reviewed by American Eagle Outfitters, Inc. All financial data is sourced directly from SEC EDGAR.
+
+Author
+
+Yakshil Patel — LinkedIn
